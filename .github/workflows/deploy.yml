@@ -48,10 +48,18 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      - name: Deploy en EC2 via SSM
+      - name: Deploy Frontend en EC2
         run: |
           aws ssm send-command \
             --instance-ids "i-0a9055b8048248820" \
             --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["cd /home/ec2-user/innovatech && docker compose pull && docker compose up -d --remove-orphans"]' \
+            --parameters 'commands=["docker pull jaltidor2025/innovatech-frontend:latest && docker stop frontend 2>/dev/null; docker rm frontend 2>/dev/null; docker run -d --name frontend -p 80:80 --restart always jaltidor2025/innovatech-frontend:latest"]' \
+            --region us-east-1
+
+      - name: Deploy Backends en EC2
+        run: |
+          aws ssm send-command \
+            --instance-ids "i-09ac23d66e509d211" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["docker pull jaltidor2025/innovatech-ventas:latest && docker pull jaltidor2025/innovatech-despachos:latest && docker stop backend-ventas backend-despachos 2>/dev/null; docker rm backend-ventas backend-despachos 2>/dev/null; docker run -d --name backend-ventas -p 8080:8080 --restart always -e DB_ENDPOINT=10.0.1.110 -e DB_PORT=3306 -e DB_NAME=innovatech_db -e DB_USERNAME=innovatech -e DB_PASSWORD=innovatech123 jaltidor2025/innovatech-ventas:latest; docker run -d --name backend-despachos -p 8081:8081 --restart always -e DB_ENDPOINT=10.0.1.110 -e DB_PORT=3306 -e DB_NAME=innovatech_db -e DB_USERNAME=innovatech -e DB_PASSWORD=innovatech123 jaltidor2025/innovatech-despachos:latest"]' \
             --region us-east-1
