@@ -69,4 +69,4 @@ networks:
 volumes:
   mysql-data:
     driver: local
-    # demo de presentacion EP2
+    # demo en vivo
