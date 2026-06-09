@@ -27,4 +27,4 @@ Frontend en producción: http://3.80.47.21
 
 ## Desarrollador
 Junior Altidor - Full Stack Developer
-Santiago, Chile
+Santiago, Chile.
