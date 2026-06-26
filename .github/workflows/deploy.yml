@@ -1,44 +1,19 @@
-name: CI/CD Innovatech EP2
-
+name: CI/CD Innovatech EP3 - ECS Fargate
 on:
   push:
     branches:
       - deploy
 
+env:
+  AWS_REGION: us-east-1
+  ECS_CLUSTER: innovatech-cluster
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout codigo
-        uses: actions/checkout@v3
-
-      - name: Login a Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build y Push Frontend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./front_despacho
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-frontend:latest
-
-      - name: Build y Push Backend Ventas
-        uses: docker/build-push-action@v5
-        with:
-          context: ./back-Ventas_SpringBoot/Springboot-API-REST
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-ventas:latest
-
-      - name: Build y Push Backend Despachos
-        uses: docker/build-push-action@v5
-        with:
-          context: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/innovatech-despachos:latest
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -48,18 +23,36 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      - name: Deploy Frontend en EC2
-        run: |
-          aws ssm send-command \
-            --instance-ids "i-0a9055b8048248820" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["docker pull jaltidor2025/innovatech-frontend:latest && docker stop frontend 2>/dev/null; docker rm frontend 2>/dev/null; docker run -d --name frontend -p 80:80 --restart always jaltidor2025/innovatech-frontend:latest"]' \
-            --region us-east-1
+      - name: Login a Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Deploy Backends en EC2
-        run: |
-          aws ssm send-command \
-            --instance-ids "i-09ac23d66e509d211" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["docker pull jaltidor2025/innovatech-ventas:latest && docker pull jaltidor2025/innovatech-despachos:latest && docker stop backend-ventas backend-despachos 2>/dev/null; docker rm backend-ventas backend-despachos 2>/dev/null; docker run -d --name backend-ventas -p 8080:8080 --restart always -e DB_ENDPOINT=10.0.1.110 -e DB_PORT=3306 -e DB_NAME=innovatech_db -e DB_USERNAME=innovatech -e DB_PASSWORD=innovatech123 jaltidor2025/innovatech-ventas:latest; docker run -d --name backend-despachos -p 8081:8081 --restart always -e DB_ENDPOINT=10.0.1.110 -e DB_PORT=3306 -e DB_NAME=innovatech_db -e DB_USERNAME=innovatech -e DB_PASSWORD=innovatech123 jaltidor2025/innovatech-despachos:latest"]' \
-            --region us-east-1
+      - name: Build y Push Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./front_despacho
+          push: true
+          tags: ${{ steps.login-ecr.outputs.registry }}/innovatech-frontend:latest
+
+      - name: Build y Push Backend Ventas
+        uses: docker/build-push-action@v5
+        with:
+          context: ./back-Ventas_SpringBoot/Springboot-API-REST
+          push: true
+          tags: ${{ steps.login-ecr.outputs.registry }}/innovatech-ventas:latest
+
+      - name: Build y Push Backend Despachos
+        uses: docker/build-push-action@v5
+        with:
+          context: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+          push: true
+          tags: ${{ steps.login-ecr.outputs.registry }}/innovatech-despachos:latest
+
+      - name: Forzar nuevo despliegue - Frontend
+        run: aws ecs update-service --cluster $ECS_CLUSTER --service frontend-service --force-new-deployment --region $AWS_REGION
+
+      - name: Forzar nuevo despliegue - Ventas
+        run: aws ecs update-service --cluster $ECS_CLUSTER --service ventas-service --force-new-deployment --region $AWS_REGION
+
+      - name: Forzar nuevo despliegue - Despachos
+        run: aws ecs update-service --cluster $ECS_CLUSTER --service despachos-service --force-new-deployment --region $AWS_REGION
