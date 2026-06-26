@@ -1,4 +1,4 @@
-name: CI/CD Innovatech EP3 - ECS Fargate
+﻿name: CI/CD Innovatech EP3 - ECS Fargate
 on:
   push:
     branches:
